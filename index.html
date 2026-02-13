@@ -157,10 +157,22 @@
             </select>
           </div>
 
-          <div>
-            <label>電話番号（通知に添える用）</label>
-            <input id="phone" inputmode="tel" placeholder="例）09012345678" />
-          </div>
+        <!-- 希望日時（空き枠） -->
+<div class="field">
+  <label>希望日時</label>
+
+  <div class="day-tabs">
+    <button type="button" id="tabToday" class="tab active">当日</button>
+    <button type="button" id="tabTomorrow" class="tab">翌日</button>
+  </div>
+
+  <div id="slotStatus" class="slot-status"></div>
+  <div id="slotGrid" class="slot-grid"></div>
+
+  <input type="hidden" id="startAt" />
+  <div id="selectedSlot" class="selected-slot"></div>
+</div>
+
         </form>
 
         <div class="actions">
@@ -168,9 +180,7 @@
           <button class="primary" id="submitBtn" type="button" disabled>この内容で予約する</button>
         </div>
 
-        <div class="mini">
-          受付：12:00〜翌5:00（当日・翌日のみ表示）／ 30分毎に予約可（終了後10分インターバル込み）
-        </div>
+      
 
         <div class="status" id="resultStatus"></div>
       </div>
