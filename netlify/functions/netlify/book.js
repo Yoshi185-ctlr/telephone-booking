@@ -5,7 +5,8 @@ exports.handler = async (event) => {
     if (event.httpMethod !== 'POST') return json(405, { error: 'Method not allowed' });
 
     const body = JSON.parse(event.body || '{}');
-    const { startAt, name, customerType, paymentMethod, phone } = body;
+    const { startAt, name, customerType, paymentMethod, 
+          } = body;
 
     if (!startAt || !name || !customerType || !paymentMethod) {
       return json(400, { error: '必須項目が不足しています' });
@@ -54,7 +55,6 @@ exports.handler = async (event) => {
         name: name.trim(),
         customer_type: customerType,
         payment_method: paymentMethod,
-        phone: phone || null
       }]);
 
     if (insErr) {
@@ -73,7 +73,6 @@ exports.handler = async (event) => {
       end: hhmm(endJst),
       customerType,
       name: name.trim(),
-      phone: (phone || '').trim(),
       lineUrl: process.env.LINE_OFFICIAL_URL || 'https://line.me/R/ti/p/@004ubxal'
     });
 
@@ -88,8 +87,7 @@ exports.handler = async (event) => {
   }
 };
 
-function buildLineText({ paymentMethod, start, end, customerType, name, phone, lineUrl }) {
-  const telLine = phone ? `【電話番号】${phone}` : `【電話番号】（未入力）`;
+function buildLineText({ paymentMethod, start, end, customerType, name, lineUrl }) {
   return `【ステータス】通常
 【支払い方法】${paymentMethod}
 【受付店舗】本店
