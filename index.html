@@ -132,21 +132,31 @@
 
         <div class="status" id="loadingStatus">空き枠を取得中…</div>
         <div class="grid" id="slotsGrid" style="display:none;"></div>
+<form id="bookingForm" class="form">
+  <div>
+    <label>お客様名（予約名）</label>
+    <input id="name" required placeholder="例）山田 花子" />
+  </div>
 
-        <form id="bookingForm" class="form">
-          <div>
-            <label>お客様名（予約名）</label>
-            <input id="name" required placeholder="例）山田 花子" />
-          </div>
+  <div>
+    <label>新規 / 会員</label>
+    <select id="customerType" required>
+      <option value="">選択してください</option>
+      <option value="新規">新規</option>
+      <option value="会員">会員</option>
+    </select>
+  </div>
 
-          <div>
-            <label>新規 / 会員</label>
-            <select id="customerType" required>
-              <option value="">選択してください</option>
-              <option value="新規">新規</option>
-              <option value="会員">会員</option>
-            </select>
-          </div>
+  <div>
+    <label>支払い方法</label>
+    <select id="paymentMethod" required>
+      <option value="">選択してください</option>
+      <option value="クレジットカード">クレジットカード</option>
+      <option value="振込">振込</option>
+    </select>
+  </div>
+</form>
+
 
           <div>
             <label>支払い方法</label>
@@ -157,32 +167,6 @@
             </select>
           </div>
 
-        <!-- 希望日時（空き枠） -->
-<div class="field">
-  <label>希望日時</label>
-  <!-- 希望日時（空き枠） -->
-<div class="field">
-  <label>希望日時</label>
-
-  <div class="day-tabs">
-    <button type="button" id="tabToday" class="tab active">当日</button>
-    <button type="button" id="tabTomorrow" class="tab">翌日</button>
-  </div>
-
-  <div id="slotStatus" class="slot-status"></div>
-  <div id="slotGrid" class="slot-grid"></div>
-
-  <input type="hidden" id="startAt" />
-  <div id="selectedSlot" class="selected-slot"></div>
-</div>
-
-
-  <div id="slotStatus" class="slot-status"></div>
-  <div id="slotGrid" class="slot-grid"></div>
-
-  <input type="hidden" id="startAt" />
-  <div id="selectedSlot" class="selected-slot"></div>
-</div>
 
         </form>
 
@@ -319,10 +303,11 @@
       submitBtn.disabled = !ok;
     }
 
-    [nameEl, customerTypeEl, paymentMethodEl, phoneEl].forEach(el => {
-      el.addEventListener('input', validate);
-      el.addEventListener('change', validate);
-    });
+    [nameEl, customerTypeEl, paymentMethodEl].forEach(el => {
+  el.addEventListener('input', validate);
+  el.addEventListener('change', validate);
+});
+
 
     submitBtn.addEventListener('click', async () => {
       validate();
