@@ -1,110 +1,75 @@
 // netlify/functions/availability.js
-const { createClient } = require('@supabase/supabase-js');
-
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-// JST基準の予約枠：12:00〜翌05:00（30分刻み）
-const SLOT_MINUTES = 30;
 
 function pad2(n) {
-  return String(n).padStart(2, '0');
+  return String(n).padStart(2, "0");
 }
 
-function hhmmlabelFromJstDate(dJst) {
-  const hh = pad2(dJst.getHours());
-  const mm = pad2(dJst.getMinutes());
-  return `${hh}:${mm}`;
-}
+// JSTの "YYYY-MM-DD" を受け取って、その日のJST 12:00〜25:00 の枠を作る
+function buildSlots(dayStr) {
+  // dayStr: "2026-02-14" みたいな形式を想定
+  const [y, m, d] = dayStr.split("-").map(Number);
 
-// dayStr: "YYYY-MM-DD"（JSTの日付）
-// その日の 12:00 JST = 03:00 UTC
-// その日の 翌05:00 JST = 20:00 UTC（同日UTC）
-function makeUtcRangeForDay(dayStr) {
-  const m = dayStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!m) return null;
+  // JSTの 12:00 を UTC に直す：JST(UTC+9)なので -9h
+  // 例) JST 12:00 → UTC 03:00
+  const startUtc = new Date(Date.UTC(y, m - 1, d, 3, 0, 0));
+  const endUtc = new Date(Date.UTC(y, m - 1, d, 16, 0, 0)); // JST 25:00 = UTC 16:00
 
-  const y = Number(m[1]);
-  const mo = Number(m[2]);
-  const d = Number(m[3]);
+  const slots = [];
+  let cur = new Date(startUtc);
 
-  // 12:00 JST = 03:00 UTC
-  const startUtc = new Date(Date.UTC(y, mo - 1, d, 3, 0, 0));
-  // 翌05:00 JST = 20:00 UTC
-  const endUtc = new Date(Date.UTC(y, mo - 1, d, 20, 0, 0));
+  while (cur < endUtc) {
+    // 表示はJSTで hh:mm にしたい
+    const jst = new Date(cur.getTime() + 9 * 60 * 60 * 1000);
+    const hh = pad2(jst.getUTCHours());
+    const mm = pad2(jst.getUTCMinutes());
 
-  return { startUtc, endUtc };
-}
+    slots.push({
+      // 予約確定に送る値はISO（UTC）
+      startAt: cur.toISOString(),
+      label: `${hh}:${mm}`,
+    });
 
-function addMinutes(date, minutes) {
-  return new Date(date.getTime() + minutes * 60 * 1000);
+    // 30分刻み
+    cur = new Date(cur.getTime() + 30 * 60 * 1000);
+  }
+
+  return slots;
 }
 
 exports.handler = async (event) => {
   try {
-    const dayStr = event.queryStringParameters?.day;
-    if (!dayStr) {
+    const qs = event.queryStringParameters || {};
+    const day = qs.day;
+
+    if (!day) {
       return {
         statusCode: 400,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'day is required (YYYY-MM-DD)' }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ error: "day is required (YYYY-MM-DD)" }),
       };
     }
 
-    const range = makeUtcRangeForDay(dayStr);
-    if (!range) {
+    // 超ゆるバリデーション
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
       return {
         statusCode: 400,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'invalid day format' }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ error: "day must be YYYY-MM-DD" }),
       };
     }
 
-    const { startUtc, endUtc } = range;
-
-    // 予約済み start_at を取得（UTCで保存されてる前提）
-    const { data: booked, error } = await supabase
-      .from('phone_bookings')
-      .select('start_at')
-      .gte('start_at', startUtc.toISOString())
-      .lt('start_at', endUtc.toISOString());
-
-    if (error) {
-      return {
-        statusCode: 500,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: error.message }),
-      };
-    }
-
-    const bookedSet = new Set((booked || []).map((r) => r.start_at));
-
-    // 30分刻みの枠を生成（UTCで start_at を作る）
-    const slots = [];
-    for (let t = new Date(startUtc); t < endUtc; t = addMinutes(t, SLOT_MINUTES)) {
-      const iso = t.toISOString();
-      if (bookedSet.has(iso)) continue;
-
-      // 表示用はJST(UTC+9)の時刻ラベルにする
-      const tJst = new Date(t.getTime() + 9 * 60 * 60 * 1000);
-      slots.push({
-        start_at: iso,
-        label: hhmmlabelFromJstDate(tJst),
-      });
-    }
+    const slots = buildSlots(day);
 
     return {
       statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ slots }),
     };
   } catch (e) {
     return {
       statusCode: 500,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ error: 'server error' }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ error: String(e?.message || e) }),
     };
   }
 };
