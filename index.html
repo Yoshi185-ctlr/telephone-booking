@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>テレフォンコース予約</title>
+
+  <style>
+    /* 余白消し */
+    html, body { margin:0; padding:0; }
+    body {
+      font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans JP","Hiragino Sans","Yu Gothic",sans-serif;
+      background:#f7f3ff;
+    }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 16px 16px 24px; }
+
+    /* テレフォンバナー */
+    .promoCard {
+      width: 100%;
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 10px 25px rgba(0,0,0,.08);
+      border: 1px solid rgba(0,0,0,.06);
+      cursor: pointer;
+      background:#fff;
+    }
+    .promoCard img { width: 100%; display:block; }
+
+    .note { color:#666; font-size: 13px; line-height:1.5; margin: 10px 0; }
+
+    /* モーダル */
+    .modalBackdrop {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      z-index: 9999;
+    }
+    .modalBackdrop.open { display:flex; }
+    .modal {
+      width: min(760px, 100%);
+      background: #fff;
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 12px 40px rgba(0,0,0,.2);
+    }
+    .modalHeader {
+      display:flex; align-items:center; justify-content:space-between;
+      padding: 14px 16px;
+      border-bottom: 1px solid #eee;
+      background: #faf7ff;
+    }
+    .modalHeader h2 { margin:0; font-size: 16px; }
+    .closeBtn { border:none; background:transparent; font-size: 22px; cursor:pointer; padding: 6px 10px; }
+    .modalBody { padding: 14px 16px 18px; }
+    .tabs { display:flex; gap:8px; margin-bottom: 12px; }
+    .tabBtn {
+      border: 1px solid #ddd; background:#fff; padding: 8px 12px;
+      border-radius: 12px; cursor:pointer; font-weight: 700; font-size: 14px;
+    }
+    .tabBtn.active { background:#2b2b2b; color:#fff; border-color:#2b2b2b; }
+
+    .status { margin-top: 10px; font-size: 13px; color:#333; }
+    .ok { color:#0b7a2b; font-weight: 900; }
+    .ng { color:#b00020; font-weight: 900; }
+
+    .grid { display:grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    @media (max-width: 520px) { .grid { grid-template-columns: repeat(2, 1fr);} }
+
+    .slotBtn {
+      padding: 10px 10px; border-radius: 12px; border:1px solid #ddd;
+      background:#fff; cursor:pointer; font-weight: 800;
+    }
+    .slotBtn[disabled] { opacity:.45; cursor:not-allowed; }
+    .slotBtn.selected { border-color:#2b2b2b; box-shadow: 0 0 0 2px rgba(43,43,43,.15); }
+
+    .form {
+      margin-top: 14px;
+      border-top: 1px dashed #ddd;
+      padding-top: 14px;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    @media (max-width: 640px) { .form { grid-template-columns: 1fr; } }
+
+    label { font-size: 12px; color:#444; font-weight:700; display:block; margin-bottom: 6px; }
+    input, select {
+      width: 100%; padding: 11px 12px; border-radius: 12px;
+      border:1px solid #ddd; font-size: 14px; background:#fff;
+    }
+
+    .actions { display:flex; gap: 10px; margin-top: 12px; }
+    .primary {
+      flex: 1;
+      border:none; background:#2b2b2b; color:#fff;
+      padding: 12px 14px; border-radius: 14px; font-weight:900; cursor:pointer;
+    }
+    .ghost {
+      border:1px solid #ddd; background:#fff; padding: 12px 14px; border-radius: 14px; font-weight:900; cursor:pointer;
+    }
+    .primary:disabled { opacity:.5; cursor:not-allowed; }
+
+    .mini { font-size: 12px; color:#666; line-height: 1.5; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <p class="note">テレフォン画像をクリックすると、当日・翌日の空き枠が表示されます（受付 12:00〜翌5:00）。</p>
+
+    <!-- ここに assets/promo.jpg を置く -->
+    <div class="promoCard" id="promoCard" role="button" aria-label="テレフォンコースを予約する">
+      <img src="./assets/promo.jpg" alt="テレフォンコース 20分 3000円" />
+    </div>
+  </div>
+
+  <!-- モーダル -->
+  <div class="modalBackdrop" id="modalBackdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modalHeader">
+        <h2>テレフォンコース予約（20分 / ¥3,000）</h2>
+        <button class="closeBtn" id="closeBtn" aria-label="閉じる">×</button>
+      </div>
+
+      <div class="modalBody">
+        <div class="tabs">
+          <button class="tabBtn active" id="tabToday" type="button">当日</button>
+          <button class="tabBtn" id="tabTomorrow" type="button">翌日</button>
+        </div>
+
+        <div class="status" id="loadingStatus">空き枠を取得中…</div>
+        <div class="grid" id="slotsGrid" style="display:none;"></div>
+
+        <form id="bookingForm" class="form">
+          <div>
+            <label>お客様名（予約名）</label>
+            <input id="name" required placeholder="例）山田 花子" />
+          </div>
+
+          <div>
+            <label>新規 / 会員</label>
+            <select id="customerType" required>
+              <option value="">選択してください</option>
+              <option value="新規">新規</option>
+              <option value="会員">会員</option>
+            </select>
+          </div>
+
+          <div>
+            <label>支払い方法</label>
+            <select id="paymentMethod" required>
+              <option value="">選択してください</option>
+              <option value="クレジットカード">クレジットカード</option>
+              <option value="振込">振込</option>
+            </select>
+          </div>
+
+          <div>
+            <label>電話番号（通知に添える用）</label>
+            <input id="phone" inputmode="tel" placeholder="例）09012345678" />
+          </div>
+        </form>
+
+        <div class="actions">
+          <button class="ghost" id="cancelBtn" type="button">キャンセル</button>
+          <button class="primary" id="submitBtn" type="button" disabled>この内容で予約する</button>
+        </div>
+
+        <div class="mini">
+          受付：12:00〜翌5:00（当日・翌日のみ表示）／ 30分毎に予約可（終了後10分インターバル込み）
+        </div>
+
+        <div class="status" id="resultStatus"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const promoCard = document.getElementById('promoCard');
+    const modalBackdrop = document.getElementById('modalBackdrop');
+    const closeBtn = document.getElementById('closeBtn');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const tabToday = document.getElementById('tabToday');
+    const tabTomorrow = document.getElementById('tabTomorrow');
+    const slotsGrid = document.getElementById('slotsGrid');
+    const loadingStatus = document.getElementById('loadingStatus');
+    const submitBtn = document.getElementById('submitBtn');
+    const resultStatus = document.getElementById('resultStatus');
+
+    const nameEl = document.getElementById('name');
+    const customerTypeEl = document.getElementById('customerType');
+    const paymentMethodEl = document.getElementById('paymentMethod');
+    const phoneEl = document.getElementById('phone');
+
+    let activeDayKey = null; // YYYY-MM-DD
+    let selectedStartAtISO = null; // UTC ISO
+    let selectedBtn = null;
+
+    function openModal() {
+      modalBackdrop.classList.add('open');
+      modalBackdrop.setAttribute('aria-hidden', 'false');
+      resultStatus.textContent = '';
+      selectedStartAtISO = null;
+      submitBtn.disabled = true;
+      setActive('today');
+      loadAvailability();
+    }
+
+    function closeModal() {
+      modalBackdrop.classList.remove('open');
+      modalBackdrop.setAttribute('aria-hidden', 'true');
+    }
+
+    promoCard.addEventListener('click', openModal);
+    closeBtn.addEventListener('click', closeModal);
+    cancelBtn.addEventListener('click', closeModal);
+    modalBackdrop.addEventListener('click', (e) => {
+      if (e.target === modalBackdrop) closeModal();
+    });
+
+    tabToday.addEventListener('click', () => { setActive('today'); loadAvailability(); });
+    tabTomorrow.addEventListener('click', () => { setActive('tomorrow'); loadAvailability(); });
+
+    function setActive(which) {
+      tabToday.classList.toggle('active', which === 'today');
+      tabTomorrow.classList.toggle('active', which === 'tomorrow');
+
+      const now = new Date();
+      const base = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const target = new Date(base);
+      if (which === 'tomorrow') target.setDate(target.getDate() + 1);
+
+      activeDayKey = ymd(target);
+
+      selectedStartAtISO = null;
+      submitBtn.disabled = true;
+      resultStatus.textContent = '';
+      if (selectedBtn) selectedBtn.classList.remove('selected');
+      selectedBtn = null;
+    }
+
+    function ymd(d) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth()+1).padStart(2,'0');
+      const day = String(d.getDate()).padStart(2,'0');
+      return `${y}-${m}-${day}`;
+    }
+
+    async function loadAvailability() {
+      loadingStatus.textContent = '空き枠を取得中…';
+      slotsGrid.style.display = 'none';
+      slotsGrid.innerHTML = '';
+
+      try {
+        const res = await fetch(`/.netlify/functions/availability?day=${encodeURIComponent(activeDayKey)}`);
+        if (!res.ok) throw new Error('fetch failed');
+        const data = await res.json();
+
+        const slots = data.slots || [];
+        if (!slots.length) {
+          loadingStatus.innerHTML = '<span class="ng">空き枠がありません</span>';
+          return;
+        }
+
+        loadingStatus.textContent = '空き枠を選択してください';
+        slotsGrid.style.display = 'grid';
+
+        slots.forEach(slot => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'slotBtn';
+          btn.textContent = slot.label;
+          btn.disabled = !slot.available;
+
+          btn.addEventListener('click', () => {
+            if (selectedBtn) selectedBtn.classList.remove('selected');
+            btn.classList.add('selected');
+            selectedBtn = btn;
+            selectedStartAtISO = slot.startAt;
+            validate();
+          });
+
+          slotsGrid.appendChild(btn);
+        });
+      } catch (e) {
+        loadingStatus.innerHTML = '<span class="ng">取得に失敗しました。少し時間をおいて再度お試しください。</span>';
+      }
+    }
+
+    function validate() {
+      const ok =
+        !!selectedStartAtISO &&
+        nameEl.value.trim().length > 0 &&
+        customerTypeEl.value &&
+        paymentMethodEl.value;
+      submitBtn.disabled = !ok;
+    }
+
+    [nameEl, customerTypeEl, paymentMethodEl, phoneEl].forEach(el => {
+      el.addEventListener('input', validate);
+      el.addEventListener('change', validate);
+    });
+
+    submitBtn.addEventListener('click', async () => {
+      validate();
+      if (submitBtn.disabled) return;
+
+      submitBtn.disabled = true;
+      resultStatus.textContent = '予約処理中…';
+
+      const payload = {
+        startAt: selectedStartAtISO,
+        name: nameEl.value.trim(),
+        customerType: customerTypeEl.value,
+        paymentMethod: paymentMethodEl.value,
+        phone: phoneEl.value.trim() || null
+      };
+
+      try {
+        const res = await fetch('/.netlify/functions/book', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          resultStatus.innerHTML = `<span class="ng">${data?.error || '予約に失敗しました'}</span>`;
+          submitBtn.disabled = false;
+          return;
+        }
+
+        const url = data.lineOfficialUrl || 'https://line.me/R/ti/p/@004ubxal';
+        resultStatus.innerHTML =
+          `<span class="ok">予約を受け付けました。</span><br/>通知を送信しました。<br/><br/>
+           上記内容をコピー&ペーストし、電話番号を添え、下記、店舗の公式LINEまでお送り頂いて確定となります。<br/>
+           <a href="${url}" target="_blank" rel="noopener">${url}</a>`;
+
+        await loadAvailability();
+      } catch (e) {
+        resultStatus.innerHTML = `<span class="ng">通信エラー。もう一度お試しください。</span>`;
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
