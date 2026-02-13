@@ -202,7 +202,6 @@
     const nameEl = document.getElementById('name');
     const customerTypeEl = document.getElementById('customerType');
     const paymentMethodEl = document.getElementById('paymentMethod');
-    const phoneEl = document.getElementById('phone');
 
     let activeDayKey = null; // YYYY-MM-DD
     let selectedStartAtISO = null; // UTC ISO
@@ -265,6 +264,7 @@
 
       try {
         const res = await fetch(`/.netlify/functions/availability?day=${encodeURIComponent(activeDayKey)}`);
+
         if (!res.ok) throw new Error('fetch failed');
         const data = await res.json();
 
@@ -325,7 +325,6 @@
         name: nameEl.value.trim(),
         customerType: customerTypeEl.value,
         paymentMethod: paymentMethodEl.value,
-        phone: phoneEl.value.trim() || null
       };
 
       try {
