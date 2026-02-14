@@ -277,7 +277,8 @@
           btn.type = 'button';
           btn.className = 'slotBtn';
           btn.textContent = slot.label;
-          btn.disabled = !slot.available;
+          btn.disabled = (slot.available === false);
+
 
           btn.addEventListener('click', () => {
             if (selectedBtn) selectedBtn.classList.remove('selected');
