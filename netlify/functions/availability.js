@@ -27,6 +27,7 @@ function buildSlots(dayStr) {
       // 予約確定に送る値はISO（UTC）
       startAt: cur.toISOString(),
       label: `${hh}:${mm}`,
+       available: true,
     });
 
     // 30分刻み
